@@ -218,8 +218,54 @@ static esp_err_t PATCH_update_swarm(httpd_req_t * req)
     }
     buf[total_len] = '\0';
 
-    nvs_config_set_string(NVS_CONFIG_SWARM, buf);
-    httpd_resp_send_chunk(req, NULL, 0);
+    // Parse the JSON
+    cJSON *root = cJSON_Parse(buf);
+    if (root == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            ESP_LOGE(TAG, "JSON parsing error: %s", error_ptr);
+        }
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    // Check for duplicate IPs
+    cJSON *device;
+    cJSON_ArrayForEach(device, root) {
+        cJSON *ip = cJSON_GetObjectItem(device, "ip");
+        if (ip && ip->valuestring) {
+            cJSON *other_device;
+            cJSON_ArrayForEach(other_device, root) {
+                if (other_device != device) {
+                    cJSON *other_ip = cJSON_GetObjectItem(other_device, "ip");
+                    if (other_ip && other_ip->valuestring && strcmp(ip->valuestring, other_ip->valuestring) == 0) {
+                        cJSON_Delete(root);
+                        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Duplicate IP address detected");
+                        return ESP_FAIL;
+                    }
+                }
+            }
+        }
+    }
+
+    // If we get here, there are no duplicates
+    char *updated_swarm = cJSON_Print(root);
+    cJSON_Delete(root);
+
+    // Use nvs_config_set_string to save the updated swarm configuration
+    nvs_config_set_string(NVS_CONFIG_SWARM, updated_swarm);
+    free(updated_swarm);
+
+    // Verify if the data was saved correctly
+    char *saved_swarm = nvs_config_get_string(NVS_CONFIG_SWARM, NULL);
+    if (saved_swarm == NULL || strcmp(saved_swarm, updated_swarm) != 0) {
+        free(saved_swarm);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save configuration");
+        return ESP_FAIL;
+    }
+    free(saved_swarm);
+
+    httpd_resp_sendstr(req, "Swarm updated successfully");
     return ESP_OK;
 }
 
