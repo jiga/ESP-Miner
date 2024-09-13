@@ -86,7 +86,7 @@ esp_err_t NVSDevice_parse_config(GlobalState * GLOBAL_STATE) {
                                         .send_work_fn = BM1366_send_work};
         //GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1366_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // version-rolling so Small Cores have different Nonce Space
         GLOBAL_STATE->asic_job_frequency_ms = 2000; //ms
-        GLOBAL_STATE->initial_ASIC_difficulty = BM1366_INITIAL_DIFFICULTY;
+        GLOBAL_STATE->ASIC_difficulty = BM1366_ASIC_DIFFICULTY;
 
         GLOBAL_STATE->ASIC_functions = ASIC_functions;
         } else if (strcmp(GLOBAL_STATE->asic_model_str, "BM1370") == 0) {
@@ -99,7 +99,7 @@ esp_err_t NVSDevice_parse_config(GlobalState * GLOBAL_STATE) {
                                         .send_work_fn = BM1370_send_work};
         //GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1370_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // version-rolling so Small Cores have different Nonce Space
         GLOBAL_STATE->asic_job_frequency_ms = 500; //ms
-        GLOBAL_STATE->initial_ASIC_difficulty = BM1370_INITIAL_DIFFICULTY;
+        GLOBAL_STATE->ASIC_difficulty = BM1370_ASIC_DIFFICULTY;
 
         GLOBAL_STATE->ASIC_functions = ASIC_functions;
     } else if (strcmp(GLOBAL_STATE->asic_model_str, "BM1368") == 0) {
@@ -112,7 +112,7 @@ esp_err_t NVSDevice_parse_config(GlobalState * GLOBAL_STATE) {
                                         .send_work_fn = BM1368_send_work};
         //GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1368_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // version-rolling so Small Cores have different Nonce Space
         GLOBAL_STATE->asic_job_frequency_ms = 500; //ms
-        GLOBAL_STATE->initial_ASIC_difficulty = BM1368_INITIAL_DIFFICULTY;
+        GLOBAL_STATE->ASIC_difficulty = BM1368_ASIC_DIFFICULTY;
 
         GLOBAL_STATE->ASIC_functions = ASIC_functions;
     } else if (strcmp(GLOBAL_STATE->asic_model_str, "BM1397") == 0) {
@@ -124,7 +124,7 @@ esp_err_t NVSDevice_parse_config(GlobalState * GLOBAL_STATE) {
                                         .set_difficulty_mask_fn = BM1397_set_job_difficulty_mask,
                                         .send_work_fn = BM1397_send_work};
         GLOBAL_STATE->asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE->POWER_MANAGEMENT_MODULE.frequency_value * BM1397_SMALL_CORE_COUNT * 1000)) / (double) GLOBAL_STATE->asic_count; // no version-rolling so same Nonce Space is splitted between Small Cores
-        GLOBAL_STATE->initial_ASIC_difficulty = BM1397_INITIAL_DIFFICULTY;
+        GLOBAL_STATE->ASIC_difficulty = BM1397_ASIC_DIFFICULTY;
 
         GLOBAL_STATE->ASIC_functions = ASIC_functions;
     } else {

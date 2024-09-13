@@ -140,6 +140,7 @@ void STRATUM_V1_parse(StratumApiV1Message * message, const char * stratum_json)
             result = CLIENT_RECONNECT;
         } else {
             ESP_LOGI(TAG, "unhandled method in stratum message: %s", stratum_json);
+            result = UNKNOWN;
         }
 
     //if there is no method, then it is a result
@@ -232,7 +233,7 @@ void STRATUM_V1_parse(StratumApiV1Message * message, const char * stratum_json)
         new_work->n_merkle_branches = cJSON_GetArraySize(merkle_branch);
         if (new_work->n_merkle_branches > MAX_MERKLE_BRANCHES) {
             printf("Too many Merkle branches.\n");
-            abort();
+            goto done;
         }
         new_work->merkle_branches = malloc(HASH_SIZE * new_work->n_merkle_branches);
         for (size_t i = 0; i < new_work->n_merkle_branches; i++) {

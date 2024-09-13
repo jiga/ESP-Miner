@@ -26,7 +26,6 @@
 #include "INA260.h"
 #include "TMP1075.h"
 #include "adc.h"
-#include "connect.h"
 #include "nvs_config.h"
 #include "oled.h"
 #include "vcore.h"
@@ -518,6 +517,23 @@ void SYSTEM_notify_new_ntime(GlobalState * GLOBAL_STATE, uint32_t ntime)
     settimeofday(&tv, NULL);
 }
 
+void SYSTEM_set_wifi_status(GlobalState * GLOBAL_STATE, wifi_status_t status, uint16_t retry_count) {
+    SystemModule * module = &GLOBAL_STATE->SYSTEM_MODULE;
+
+    if (status == WIFI_RETRYING) {
+        snprintf(module->wifi_status, 20, "Retrying: %d", retry_count);
+        return;
+    } else if (status == WIFI_CONNECT_FAILED) {
+        snprintf(module->wifi_status, 20, "Connect Failed!");
+        return;
+    } else if (status == WIFI_CONNECTED) {
+        snprintf(module->wifi_status, 20, "Connected!");
+        return;
+    }
+}
+
+//
+// Deal with a found nonce. Also calculate the hashrate
 void SYSTEM_notify_found_nonce(GlobalState * GLOBAL_STATE, double found_diff, uint8_t job_id)
 {
     SystemModule * module = &GLOBAL_STATE->SYSTEM_MODULE;
@@ -525,7 +541,7 @@ void SYSTEM_notify_found_nonce(GlobalState * GLOBAL_STATE, double found_diff, ui
     // Calculate the time difference in seconds with sub-second precision
     // hashrate = (nonce_difficulty * 2^32) / time_to_find
 
-    module->historical_hashrate[module->historical_hashrate_rolling_index] = GLOBAL_STATE->initial_ASIC_difficulty;
+    module->historical_hashrate[module->historical_hashrate_rolling_index] = GLOBAL_STATE->ASIC_difficulty;
     module->historical_hashrate_time_stamps[module->historical_hashrate_rolling_index] = esp_timer_get_time();
 
     module->historical_hashrate_rolling_index = (module->historical_hashrate_rolling_index + 1) % HISTORY_LENGTH;

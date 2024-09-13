@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "nvs_config.h"
 #include "utils.h"
+#include "main.h"
 
 static const char *TAG = "asic_result";
 
@@ -57,5 +58,6 @@ void ASIC_result_task(void *pvParameters)
         }
 
         SYSTEM_notify_found_nonce(GLOBAL_STATE, nonce_diff, job_id);
+        Main_feed_asic_watchdog(ASIC_NONCE);
     }
 }

@@ -2,6 +2,7 @@
 #define SYSTEM_H_
 
 #include "global_state.h"
+#include "connect.h"
 
 void SYSTEM_notify_accepted_share(GlobalState * GLOBAL_STATE);
 void SYSTEM_notify_rejected_share(GlobalState * GLOBAL_STATE);
@@ -9,6 +10,8 @@ void SYSTEM_notify_found_nonce(GlobalState * GLOBAL_STATE, double found_diff, ui
 void SYSTEM_notify_mining_started(GlobalState * GLOBAL_STATE);
 void SYSTEM_notify_new_ntime(GlobalState * GLOBAL_STATE, uint32_t ntime);
 void SYSTEM_update_overheat_mode(GlobalState * GLOBAL_STATE);
+void SYSTEM_set_wifi_status(GlobalState *, wifi_status_t, uint16_t);
+
 
 void System_init_system(GlobalState * GLOBAL_STATE);
 void System_clear_display(GlobalState * GLOBAL_STATE);

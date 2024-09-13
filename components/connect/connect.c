@@ -51,8 +51,6 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static const char * TAG = "wifi station";
 
-static int s_retry_num = 0;
-
 static void event_handler(void * arg, esp_event_base_t event_base, int32_t event_id, void * event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -62,15 +60,13 @@ static void event_handler(void * arg, esp_event_base_t event_base, int32_t event
         // Wait a little
         vTaskDelay(2500 / portTICK_PERIOD_MS);
         esp_wifi_connect();
-        s_retry_num++;
         ESP_LOGI(TAG, "Retrying WiFi connection...");
-        MINER_set_wifi_status(WIFI_RETRYING, s_retry_num);
-        //Network_set_wifi_status(GlobalState * GLOBAL_STATE, wifi_status_t status, uint16_t retry_count)
+        //MINER_set_wifi_status(WIFI_RETRYING, s_retry_num);
+        //SYSTEM_set_wifi_status(&GLOBAL_STATE, WIFI_RETRYING, s_retry_num);
 
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t * event = (ip_event_got_ip_t *) event_data;
         ESP_LOGI(TAG, "Bitaxe ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
