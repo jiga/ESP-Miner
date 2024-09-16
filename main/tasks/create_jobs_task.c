@@ -1,12 +1,15 @@
-#include "work_queue.h"
-#include "global_state.h"
+#include <sys/time.h>
+#include <limits.h>
+#include <string.h>
+
 #include "esp_log.h"
 #include "esp_system.h"
-#include "mining.h"
-#include <limits.h>
-#include "string.h"
+#include "esp_err.h"
 
-#include <sys/time.h>
+#include "work_queue.h"
+#include "global_state.h"
+#include "mining.h"
+#include "asic_task.h"
 
 static const char *TAG = "create_jobs_task";
 
@@ -14,13 +17,16 @@ static const char *TAG = "create_jobs_task";
 #define TASK_YIELD_THRESHOLD 1000 // Yield after this many iterations
 #define QUEUE_LOW_WATER_MARK 10 // Adjust based on your requirements
 
-static void process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notification);
+static esp_err_t process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notification);
 static bool should_generate_more_work(GlobalState *GLOBAL_STATE);
-static void generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *notification);
+static esp_err_t generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *notification);
 
 void create_jobs_task(void *pvParameters)
 {
     GlobalState *GLOBAL_STATE = (GlobalState *)pvParameters;
+
+    //wait for task event to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY); 
 
     while (1)
     {
@@ -33,7 +39,11 @@ void create_jobs_task(void *pvParameters)
         ESP_LOGI(TAG, "New Work Dequeued %s", mining_notification->job_id);
 
         // Process this job immediately
-        process_mining_job(GLOBAL_STATE, mining_notification);
+        if (process_mining_job(GLOBAL_STATE, mining_notification) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to process mining job");
+            STRATUM_V1_free_mining_notify(mining_notification);
+            continue;
+        }
 
         // Now wait for more work or process additional jobs if needed
         uint32_t iteration_count = 0;
@@ -42,10 +52,11 @@ void create_jobs_task(void *pvParameters)
             // Check if we need to generate more work based on the current job
             if (should_generate_more_work(GLOBAL_STATE))
             {
-                generate_additional_work(GLOBAL_STATE, mining_notification);
-            }
-            else
-            {
+                if (generate_additional_work(GLOBAL_STATE, mining_notification) != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to generate additional work");
+                    //break;
+                }
+            } else {
                 // If no more work needed, wait a bit before checking again
                 vTaskDelay(pdMS_TO_TICKS(100));
             }
@@ -57,30 +68,29 @@ void create_jobs_task(void *pvParameters)
             }
         }
 
-        if (GLOBAL_STATE->abandon_work == 1)
-        {
+        if (GLOBAL_STATE->abandon_work == 1) {
             GLOBAL_STATE->abandon_work = 0;
             ASIC_jobs_queue_clear(&GLOBAL_STATE->ASIC_jobs_queue);
-            xSemaphoreGive(GLOBAL_STATE->ASIC_TASK_MODULE.semaphore);
+            ASIC_task_send_event(ASICTASK_JOB_NOW);
         }
 
         STRATUM_V1_free_mining_notify(mining_notification);
     }
 }
 
-static void process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notification)
+static esp_err_t process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notification)
 {
     char *extranonce_2_str = extranonce_2_generate(0, GLOBAL_STATE->extranonce_2_len);
     if (extranonce_2_str == NULL) {
         ESP_LOGE(TAG, "Failed to generate extranonce_2");
-        return;
+        return ESP_FAIL;
     }
 
     char *coinbase_tx = construct_coinbase_tx(notification->coinbase_1, notification->coinbase_2, GLOBAL_STATE->extranonce_str, extranonce_2_str);
     if (coinbase_tx == NULL) {
         ESP_LOGE(TAG, "Failed to construct coinbase_tx");
         free(extranonce_2_str);
-        return;
+        return ESP_FAIL;
     }
 
     char *merkle_root = calculate_merkle_root_hash(coinbase_tx, (uint8_t(*)[32])notification->merkle_branches, notification->n_merkle_branches);
@@ -88,7 +98,7 @@ static void process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notific
         ESP_LOGE(TAG, "Failed to calculate merkle_root");
         free(extranonce_2_str);
         free(coinbase_tx);
-        return;
+        return ESP_FAIL;
     }
 
     bm_job next_job = construct_bm_job(notification, merkle_root, GLOBAL_STATE->version_mask);
@@ -99,7 +109,7 @@ static void process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notific
         free(extranonce_2_str);
         free(coinbase_tx);
         free(merkle_root);
-        return;
+        return ESP_FAIL;
     }
 
     memcpy(queued_next_job, &next_job, sizeof(bm_job));
@@ -113,6 +123,8 @@ static void process_mining_job(GlobalState *GLOBAL_STATE, mining_notify *notific
     free(merkle_root);
 
     ESP_LOGI(TAG, "Job processed and queued: %s", notification->job_id);
+
+    return ESP_OK;
 }
 
 static bool should_generate_more_work(GlobalState *GLOBAL_STATE)
@@ -120,21 +132,21 @@ static bool should_generate_more_work(GlobalState *GLOBAL_STATE)
     return GLOBAL_STATE->ASIC_jobs_queue.count < QUEUE_LOW_WATER_MARK;
 }
 
-static void generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *notification)
+static esp_err_t generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *notification)
 {
     static uint32_t extranonce_2 = 1; // Start from 1 as 0 was used in the initial job
 
     char *extranonce_2_str = extranonce_2_generate(extranonce_2, GLOBAL_STATE->extranonce_2_len);
     if (extranonce_2_str == NULL) {
         ESP_LOGE(TAG, "Failed to generate extranonce_2");
-        return;
+        return ESP_FAIL;
     }
 
     char *coinbase_tx = construct_coinbase_tx(notification->coinbase_1, notification->coinbase_2, GLOBAL_STATE->extranonce_str, extranonce_2_str);
     if (coinbase_tx == NULL) {
         ESP_LOGE(TAG, "Failed to construct coinbase_tx");
         free(extranonce_2_str);
-        return;
+        return ESP_FAIL;
     }
 
     char *merkle_root = calculate_merkle_root_hash(coinbase_tx, (uint8_t(*)[32])notification->merkle_branches, notification->n_merkle_branches);
@@ -142,7 +154,7 @@ static void generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *n
         ESP_LOGE(TAG, "Failed to calculate merkle_root");
         free(extranonce_2_str);
         free(coinbase_tx);
-        return;
+        return ESP_FAIL;
     }
 
     bm_job next_job = construct_bm_job(notification, merkle_root, GLOBAL_STATE->version_mask);
@@ -153,7 +165,7 @@ static void generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *n
         free(extranonce_2_str);
         free(coinbase_tx);
         free(merkle_root);
-        return;
+        return ESP_FAIL;
     }
 
     memcpy(queued_next_job, &next_job, sizeof(bm_job));
@@ -172,4 +184,6 @@ static void generate_additional_work(GlobalState *GLOBAL_STATE, mining_notify *n
     }
     // Logging could cause websocket to crash use with caution
     //ESP_LOGI(TAG, "Additional job generated and queued: %s (Extranonce2: %lu)", notification->job_id, (extranonce_2 - 1));
+
+    return ESP_OK;
 }

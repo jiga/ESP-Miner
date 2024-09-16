@@ -1,3 +1,6 @@
+#ifndef DISPLAY_TASK_H
+#define DISPLAY_TASK_H
+
 #include "esp_err.h"
 #include "global_state.h"
 
@@ -40,3 +43,5 @@ void Display_bad_NVS(void);
 void Display_normal_update(uint8_t);
 
 void Display_change_state(display_state_t);
+
+#endif // DISPLAY_TASK_H

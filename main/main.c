@@ -36,7 +36,9 @@ static uint64_t watchdog_pool_last = 0;
 static uint64_t watchdog_asic_last = 0;
 
 /* Handles for the tasks create by app_main(). */  
-static TaskHandle_t stratum_task_h = NULL; 
+static TaskHandle_t stratum_task_h = NULL;
+static TaskHandle_t asic_task_h = NULL; 
+static TaskHandle_t create_jobs_task_h = NULL; 
 
 static void unblock_task(TaskHandle_t);
 
@@ -76,8 +78,9 @@ void app_main(void)
     System_init_system(&GLOBAL_STATE);
 
     xTaskCreate(POWER_MANAGEMENT_task, "power mangement", 8192, (void *) &GLOBAL_STATE, 10, NULL);
-
     xTaskCreate(stratum_task, "stratum task", 8192, (void *) &GLOBAL_STATE, 5, &stratum_task_h);
+    xTaskCreate(ASIC_task, "asic task", 8192, (void *) &GLOBAL_STATE, 10, &asic_task_h);
+    xTaskCreate(create_jobs_task, "create jobs task", 8192, (void *) &GLOBAL_STATE, 10, &create_jobs_task_h);
 
     // Initialize the main state machine
     mainStateMachine.state = MAIN_STATE_INIT;
@@ -165,8 +168,10 @@ void app_main(void)
             case MAIN_STATE_MINING_INIT:
                 Display_change_state(DISPLAY_STATE_NORMAL); //Change display state
 
-                xTaskCreate(create_jobs_task, "create jobs task", 8192, (void *) &GLOBAL_STATE, 10, NULL);
-                xTaskCreate(ASIC_task, "asic task", 8192, (void *) &GLOBAL_STATE, 10, NULL);
+                
+                unblock_task(asic_task_h);
+                unblock_task(create_jobs_task_h);
+                ASIC_task_send_event(ASICTASK_JOB_NOW);
                 xTaskCreate(ASIC_result_task, "asic result task", 8192, (void *) &GLOBAL_STATE, 15, NULL);
                 mainStateMachine.state = MAIN_STATE_NORMAL;
                 break;
@@ -180,9 +185,11 @@ void app_main(void)
 
                 if (eventBits & POOL_FAIL) {
                     ESP_LOGE(TAG, "POOL_FAIL event detected");
+                    ASIC_task_send_event(ASICTASK_RESTART);
                     mainStateMachine.state = MAIN_STATE_POOL_CONNECT;
                 } else if (eventBits & ASIC_FAIL) {
                     ESP_LOGE(TAG, "ASIC_FAIL event detected");
+                    ASIC_task_send_event(ASICTASK_RESTART);
                     mainStateMachine.state = MAIN_STATE_ASIC_INIT;
                 } else {
                     //no events, continue normal operation

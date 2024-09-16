@@ -384,10 +384,14 @@ void BM1397_send_work(void *pvParameters, bm_job *next_bm_job)
 
     pthread_mutex_lock(&GLOBAL_STATE->valid_jobs_lock);
     GLOBAL_STATE->valid_jobs[job.job_id] = 1;
-    // ESP_LOGI(TAG, "Added Job: %i", job.job_id);
     pthread_mutex_unlock(&GLOBAL_STATE->valid_jobs_lock);
 
-    _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), &job, sizeof(job_packet), BM1397_DEBUG_WORK);
+    //debug sent jobs - this can get crazy if the interval is short
+    #if BM1397_DEBUG_JOBS
+    ESP_LOGI(TAG, "Send Job: %02X", job.job_id);
+    #endif
+
+    _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t *)&job, sizeof(job_packet), BM1397_DEBUG_WORK);
 }
 
 asic_result *BM1397_receive_work(void)

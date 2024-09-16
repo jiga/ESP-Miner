@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
 #include "asic_task.h"
 #include "bm1370.h"
 #include "bm1368.h"
