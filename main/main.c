@@ -77,7 +77,7 @@ void app_main(void)
 
     System_init_system(&GLOBAL_STATE);
 
-    xTaskCreate(POWER_MANAGEMENT_task, "power mangement", 8192, (void *) &GLOBAL_STATE, 10, NULL);
+
     xTaskCreate(stratum_task, "stratum task", 8192, (void *) &GLOBAL_STATE, 5, &stratum_task_h);
     xTaskCreate(ASIC_task, "asic task", 8192, (void *) &GLOBAL_STATE, 10, &asic_task_h);
     xTaskCreate(create_jobs_task, "create jobs task", 8192, (void *) &GLOBAL_STATE, 10, &create_jobs_task_h);
@@ -145,6 +145,8 @@ void app_main(void)
                 (*GLOBAL_STATE.ASIC_functions.init_fn)(GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value, GLOBAL_STATE.asic_count);
                 SERIAL_set_baud((*GLOBAL_STATE.ASIC_functions.set_max_baud_fn)());
                 SERIAL_clear_buffer();
+
+                xTaskCreate(POWER_MANAGEMENT_task, "power mangement", 8192, (void *) &GLOBAL_STATE, 10, NULL);
 
                 mainStateMachine.state = MAIN_STATE_POOL_CONNECT;
                 break;
