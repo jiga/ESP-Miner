@@ -35,8 +35,9 @@
 static const char * TAG = "SystemModule";
 
 static void _suffix_string(uint64_t, char *, size_t, int);
+static void getIPstring(char * ip_str);
 
-static esp_netif_t * netif;
+esp_netif_t * netif;
 static esp_netif_ip_info_t ip_info;
 
 QueueHandle_t user_input_queue;
@@ -56,7 +57,7 @@ static esp_err_t ensure_overheat_mode_config() {
     return ESP_OK;
 }
 
-static void _init_system(GlobalState * GLOBAL_STATE)
+void SYSTEM_init_system(GlobalState * GLOBAL_STATE)
 {
     SystemModule * module = &GLOBAL_STATE->SYSTEM_MODULE;
 
@@ -93,11 +94,6 @@ static void _init_system(GlobalState * GLOBAL_STATE)
 
     // set the wifi_status to blank
     memset(module->wifi_status, 0, 20);
-
-    // test the LEDs
-    //  ESP_LOGI(TAG, "Init LEDs!");
-    //  ledc_init();
-    //  led_set();
 
     // Init I2C
     ESP_ERROR_CHECK(i2c_master_init());
@@ -141,8 +137,6 @@ static void _init_system(GlobalState * GLOBAL_STATE)
             break;
         default:
     }
-
-    netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
 }
 
 void SYSTEM_update_overheat_mode(GlobalState * GLOBAL_STATE)
@@ -317,10 +311,8 @@ static void _update_esp32_info(GlobalState * GLOBAL_STATE)
                 snprintf(module->oled_buf, 20, "vCore: %u mV", vcore);
                 OLED_writeString(0, 1, module->oled_buf);
 
-                esp_netif_get_ip_info(netif, &ip_info);
                 char ip_address_str[IP4ADDR_STRLEN_MAX];
-                esp_ip4addr_ntoa(&ip_info.ip, ip_address_str, IP4ADDR_STRLEN_MAX);
-
+                getIPstring(ip_address_str);
                 memset(module->oled_buf, 0, 20);
                 snprintf(module->oled_buf, 20, "IP: %s", ip_address_str);
                 OLED_writeString(0, 2, module->oled_buf);
@@ -330,6 +322,12 @@ static void _update_esp32_info(GlobalState * GLOBAL_STATE)
             break;
         default:
     }
+}
+
+static void getIPstring(char * ip_str) {
+    esp_netif_t * netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    esp_netif_get_ip_info(netif, &ip_info);
+    esp_ip4addr_ntoa(&ip_info.ip, ip_str, IP4ADDR_STRLEN_MAX);
 }
 
 static void _init_connection(GlobalState * GLOBAL_STATE)
@@ -535,7 +533,6 @@ void SYSTEM_task(void * pvParameters)
     GlobalState * GLOBAL_STATE = (GlobalState *) pvParameters;
     SystemModule * module = &GLOBAL_STATE->SYSTEM_MODULE;
 
-    _init_system(GLOBAL_STATE);
     user_input_queue = xQueueCreate(10, sizeof(char[10])); // Create a queue to handle user input events
 
     _clear_display(GLOBAL_STATE);

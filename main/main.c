@@ -140,6 +140,7 @@ void app_main(void)
         vTaskDelay(60 * 60 * 1000 / portTICK_PERIOD_MS);
     }
 
+    SYSTEM_init_system(&GLOBAL_STATE);
     xTaskCreate(SYSTEM_task, "SYSTEM_task", 4096, (void *) &GLOBAL_STATE, 3, NULL);
     xTaskCreate(POWER_MANAGEMENT_task, "power mangement", 8192, (void *) &GLOBAL_STATE, 10, NULL);
 
