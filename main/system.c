@@ -36,6 +36,10 @@ static const char * TAG = "SystemModule";
 
 static void _suffix_string(uint64_t, char *, size_t, int);
 static void getIPstring(char * ip_str);
+static void _clear_display(GlobalState * GLOBAL_STATE);
+static void _init_connection(GlobalState * GLOBAL_STATE);
+static void show_ap_information(const char * error, GlobalState * GLOBAL_STATE);
+static void _update_connection(GlobalState * GLOBAL_STATE);
 
 esp_netif_t * netif;
 static esp_netif_ip_info_t ip_info;
@@ -136,6 +140,14 @@ void SYSTEM_init_system(GlobalState * GLOBAL_STATE)
             }
             break;
         default:
+    }
+
+    _clear_display(GLOBAL_STATE);
+    _init_connection(GLOBAL_STATE);
+
+    while (GLOBAL_STATE->ASIC_functions.init_fn == NULL) {
+        show_ap_information("ASIC MODEL INVALID", GLOBAL_STATE);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -535,22 +547,13 @@ void SYSTEM_task(void * pvParameters)
 
     user_input_queue = xQueueCreate(10, sizeof(char[10])); // Create a queue to handle user input events
 
-    _clear_display(GLOBAL_STATE);
-    _init_connection(GLOBAL_STATE);
-
     char input_event[10];
+
+    _update_connection(GLOBAL_STATE);
+    //wait for wifi to be connected.
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY); 
+    
     ESP_LOGI(TAG, "SYSTEM_task started");
-
-    while (GLOBAL_STATE->ASIC_functions.init_fn == NULL) {
-        show_ap_information("ASIC MODEL INVALID", GLOBAL_STATE);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-    }
-
-    // show the connection screen
-    while (!module->startup_done) {
-        _update_connection(GLOBAL_STATE);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
 
     while (1) {
         // Check for overheat mode

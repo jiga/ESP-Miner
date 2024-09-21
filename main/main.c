@@ -28,6 +28,8 @@ static GlobalState GLOBAL_STATE = {
 static const char * TAG = "bitaxe";
 static const double NONCE_SPACE = 4294967296.0; //  2^32
 
+static TaskHandle_t system_task_h = NULL;
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "Welcome to the bitaxe - hack the planet!");
@@ -141,7 +143,7 @@ void app_main(void)
     }
 
     SYSTEM_init_system(&GLOBAL_STATE);
-    xTaskCreate(SYSTEM_task, "SYSTEM_task", 4096, (void *) &GLOBAL_STATE, 3, NULL);
+    xTaskCreate(SYSTEM_task, "SYSTEM_task", 4096, (void *) &GLOBAL_STATE, 3, &system_task_h);
     xTaskCreate(POWER_MANAGEMENT_task, "power mangement", 8192, (void *) &GLOBAL_STATE, 10, NULL);
 
     // pull the wifi credentials and hostname out of NVS
@@ -186,8 +188,8 @@ void app_main(void)
     free(wifi_pass);
     free(hostname);
 
-    // set the startup_done flag
-    GLOBAL_STATE.SYSTEM_MODULE.startup_done = true;
+    //unblock the system task since we're connected to wifi now
+    xTaskNotifyGive(system_task_h); 
 
     xTaskCreate(USER_INPUT_task, "user input", 8192, (void *) &GLOBAL_STATE, 5, NULL);
 
